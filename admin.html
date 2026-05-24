@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jamuna LTD | Admin Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -109,26 +110,15 @@
     </div>
 
     <script>
-        // YOUR GOOGLE APPS SCRIPT URL - PASTED BELOW
-        const API_URL = 'https://script.google.com/macros/s/AKfycbyN64RQoFe3CDbZN-OFGprlfjSIeAWgGz5o7Y2_SXPp9QtQGCokD7cZysU7PdEckAP_6g/exec';
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://bxvpqjyxffwurosscbsw.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4dnBxanl4ZmZ3dXJvc3NjYnN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MDY3OTYsImV4cCI6MjA5NTE4Mjc5Nn0.riUBTCg2s_dL1ugshVRHwraFFzGjpJ9xBczAefcp9u8';
+        
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         async function loadDocuments() {
-            return JSON.parse(localStorage.getItem('jamuna_docs_list') || '[]');
-        }
-        
-        async function saveDocumentToCloud(doc) {
-            const params = new URLSearchParams({
-                action: 'save',
-                docId: doc.id,
-                title: doc.title,
-                issueDate: doc.issueDate,
-                category: doc.category,
-                description: doc.description,
-                fileData: doc.fileData
-            });
-            
-            const response = await fetch(`${API_URL}?${params.toString()}`);
-            return await response.json();
+            const { data, error } = await supabase.from('documents').select('*').order('uploaded_at', { ascending: false });
+            return data || [];
         }
         
         async function updateStats() {
@@ -144,26 +134,24 @@
             if (docs.length === 0) { container.innerHTML = '<p>No documents yet.</p>'; return; }
             container.innerHTML = docs.map(doc => `
                 <div class="doc-item">
-                    <div><strong>${escapeHtml(doc.title)}</strong><br><small>ID: ${doc.id} | ${doc.issueDate}</small></div>
+                    <div><strong>${escapeHtml(doc.title)}</strong><br><small>ID: ${doc.doc_id} | ${doc.issue_date} | Verifications: ${doc.verification_count || 0}</small></div>
                     <div class="doc-actions">
-                        <button onclick="copyLink('${doc.id}')">Copy Link</button>
-                        <button class="btn-danger" onclick="deleteDoc('${doc.id}')">Delete</button>
+                        <button onclick="copyLink('${doc.doc_id}')">Copy Link</button>
+                        <button class="btn-danger" onclick="deleteDoc('${doc.doc_id}')">Delete</button>
                     </div>
                 </div>
             `).join('');
         }
         
         window.copyLink = function(id) {
-            const link = `${window.location.origin}/verify-jamunabd/index.html?doc=${id}`;
+            const link = `https://limafiroz99x.github.io/verify-jamuna/index.html?doc=${id}`;
             navigator.clipboard.writeText(link);
             showToast('Verification link copied!');
         };
         
         window.deleteDoc = async function(id) {
             if (confirm('Delete permanently?')) {
-                let docs = await loadDocuments();
-                docs = docs.filter(d => d.id !== id);
-                localStorage.setItem('jamuna_docs_list', JSON.stringify(docs));
+                await supabase.from('documents').delete().eq('doc_id', id);
                 renderAdminList();
                 updateStats();
                 showToast('Document deleted');
@@ -192,25 +180,25 @@
                 const reader = new FileReader();
                 reader.onload = async function(e) {
                     const docId = generateDocId();
-                    const newDoc = { 
-                        id: docId, 
-                        title, 
-                        issueDate, 
-                        category, 
-                        description, 
-                        fileData: e.target.result,
-                        uploadedAt: new Date().toISOString()
-                    };
                     
-                    const docs = await loadDocuments();
-                    docs.push(newDoc);
-                    localStorage.setItem('jamuna_docs_list', JSON.stringify(docs));
+                    const { error } = await supabase.from('documents').insert([{
+                        doc_id: docId,
+                        title: title,
+                        issue_date: issueDate,
+                        category: category,
+                        description: description,
+                        file_data: e.target.result
+                    }]);
                     
-                    await saveDocumentToCloud(newDoc);
+                    if (error) {
+                        showToast('Upload failed: ' + error.message);
+                        return;
+                    }
                     
                     const tempDiv = document.createElement('div');
-                    const verifyUrl = `${window.location.origin}/verify-jamunabd/index.html?doc=${docId}`;
+                    const verifyUrl = `https://limafiroz99x.github.io/verify-jamuna/index.html?doc=${docId}`;
                     new QRCode(tempDiv, { text: verifyUrl, width: 150, height: 150 });
+                    
                     setTimeout(() => {
                         const qrImg = tempDiv.querySelector('img');
                         const html = `<!DOCTYPE html><html><head><title>${title}</title><style>body{text-align:center;padding:40px;font-family:Arial}</style></head><body><h1>Jamuna LTD</h1><p>Paitka, Dhanbari, Tangail</p><h2>${title}</h2><p><strong>Document ID:</strong> ${docId}</p><p><strong>Issue Date:</strong> ${issueDate}</p><p><strong>Category:</strong> ${category}</p>${qrImg ? `<div><img src="${qrImg.src}"></div>` : ''}<p><strong>Scan QR or visit:</strong><br>${verifyUrl}</p><hr><small>Official verified document from Jamuna LTD</small></body></html>`;
@@ -219,7 +207,7 @@
                         a.href = URL.createObjectURL(blob);
                         a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_JAMUNA_VERIFIED.html`;
                         a.click();
-                        showToast(`Uploaded! ID: ${docId}`);
+                        showToast(`Uploaded successfully! ID: ${docId}`);
                         document.getElementById('docTitle').value = '';
                         document.getElementById('docFile').value = '';
                         renderAdminList();
