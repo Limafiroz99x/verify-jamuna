@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jamuna LTD | Official Document Verification</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -141,12 +142,13 @@
     </div>
 
     <script>
-        // YOUR GOOGLE APPS SCRIPT URL - PASTED BELOW
-        const API_URL = 'https://script.google.com/macros/s/AKfycbyN64RQoFe3CDbZN-OFGprlfjSIeAWgGz5o7Y2_SXPp9QtQGCokD7cZysU7PdEckAP_6g/exec';
+        // ============ SUPABASE CONFIGURATION ============
+        const SUPABASE_URL = 'https://bxvpqjyxffwurosscbsw.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4dnBxanl4ZmZ3dXJvc3NjYnN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MDY3OTYsImV4cCI6MjA5NTE4Mjc5Nn0.riUBTCg2s_dL1ugshVRHwraFFzGjpJ9xBczAefcp9u8';
         
-        let currentDoc = null;
-
-        function getFilePreview(fileData, fileName) {
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function getFilePreview(fileData) {
             if (!fileData) return '<div class="loading"><i class="fas fa-spinner"></i> Loading preview...</div>';
             
             if (fileData.startsWith('data:image')) {
@@ -161,43 +163,54 @@
                         </div>`;
             }
         }
-
+        
         async function renderPublicDocument(docId) {
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Verifying document...</div>';
             
             try {
-                const response = await fetch(`${API_URL}?action=get&docId=${encodeURIComponent(docId)}`);
-                const doc = await response.json();
+                const { data, error } = await supabase
+                    .from('documents')
+                    .select('*')
+                    .eq('doc_id', docId)
+                    .single();
                 
-                if (!doc.success) {
+                if (error || !data) {
                     resultDiv.innerHTML = '<div style="background:#fee;color:#e74c3c;padding:20px;border-radius:12px;margin-top:20px;"><i class="fas fa-exclamation-triangle"></i> Invalid or expired document ID.</div>';
                     return;
                 }
                 
-                currentDoc = doc;
-                const fileName = `${doc.title}.pdf`;
+                // Update verification count
+                await supabase
+                    .from('documents')
+                    .update({ verification_count: (data.verification_count || 0) + 1 })
+                    .eq('doc_id', docId);
+                
+                // Log verification
+                await supabase
+                    .from('verifications')
+                    .insert([{ doc_id: docId, ip_address: 'web-user' }]);
                 
                 resultDiv.innerHTML = `
                     <div class="document-viewer">
                         <div class="verified-badge">
                             <i class="fas fa-check-circle"></i> OFFICIALLY VERIFIED
                         </div>
-                        <h2 class="doc-title"><i class="fas fa-file-alt"></i> ${escapeHtml(doc.title)}</h2>
+                        <h2 class="doc-title"><i class="fas fa-file-alt"></i> ${escapeHtml(data.title)}</h2>
                         <div class="doc-details">
-                            <div class="detail-item"><i class="fas fa-qrcode"></i> <strong>ID:</strong> ${escapeHtml(doc.docId)}</div>
-                            <div class="detail-item"><i class="fas fa-calendar"></i> <strong>Issue Date:</strong> ${escapeHtml(doc.issueDate)}</div>
+                            <div class="detail-item"><i class="fas fa-qrcode"></i> <strong>ID:</strong> ${escapeHtml(data.doc_id)}</div>
+                            <div class="detail-item"><i class="fas fa-calendar"></i> <strong>Issue Date:</strong> ${escapeHtml(data.issue_date)}</div>
                             <div class="detail-item"><i class="fas fa-building"></i> <strong>Issued By:</strong> Jamuna LTD</div>
-                            <div class="detail-item"><i class="fas fa-tag"></i> <strong>Category:</strong> ${escapeHtml(doc.category)}</div>
+                            <div class="detail-item"><i class="fas fa-tag"></i> <strong>Category:</strong> ${escapeHtml(data.category || 'Document')}</div>
                             <div class="detail-item"><i class="fas fa-clock"></i> <strong>Verified:</strong> ${new Date().toLocaleString()}</div>
                         </div>
-                        ${doc.description ? `<div style="background:#f0f7ff;padding:15px;border-radius:12px;margin:15px 0;"><i class="fas fa-sticky-note"></i> ${escapeHtml(doc.description)}</div>` : ''}
+                        ${data.description ? `<div style="background:#f0f7ff;padding:15px;border-radius:12px;margin:15px 0;"><i class="fas fa-sticky-note"></i> ${escapeHtml(data.description)}</div>` : ''}
                         <div class="document-preview">
                             <div class="preview-header"><i class="fas fa-eye"></i> Document Preview</div>
-                            <div class="preview-content">${getFilePreview(doc.fileData, fileName)}</div>
+                            <div class="preview-content">${getFilePreview(data.file_data)}</div>
                         </div>
                         <div style="display:flex;gap:15px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
-                            <a href="${doc.fileData}" download="${escapeHtml(doc.title)}" style="padding:12px 24px;background:#27ae60;color:white;text-decoration:none;border-radius:8px;"><i class="fas fa-download"></i> Download Original</a>
+                            <a href="${data.file_data}" download="${escapeHtml(data.title)}" style="padding:12px 24px;background:#27ae60;color:white;text-decoration:none;border-radius:8px;"><i class="fas fa-download"></i> Download Original</a>
                             <button onclick="window.print()" style="width:auto;background:#7f8c8d;"><i class="fas fa-print"></i> Print</button>
                         </div>
                     </div>
@@ -208,7 +221,7 @@
                 resultDiv.innerHTML = '<div style="background:#fee;color:#e74c3c;padding:20px;border-radius:12px;margin-top:20px;"><i class="fas fa-exclamation-triangle"></i> Network error. Please try again.</div>';
             }
         }
-
+        
         function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/[&<>]/g, function(m) {
@@ -218,7 +231,7 @@
                 return m;
             });
         }
-
+        
         function checkQRScan() {
             const params = new URLSearchParams(window.location.search);
             const docId = params.get('doc');
@@ -227,7 +240,7 @@
                 renderPublicDocument(docId);
             }
         }
-
+        
         document.addEventListener('DOMContentLoaded', () => {
             checkQRScan();
             document.getElementById('verifyBtn').addEventListener('click', () => {
