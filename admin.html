@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jamuna LTD | Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .login-card, .dashboard-card {
+            background: white; border-radius: 20px;
+            padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .login-card { max-width: 450px; margin: 100px auto; }
+        h1 { color: #1a4d8c; margin-bottom: 30px; text-align: center; }
+        input, select, textarea {
+            width: 100%; padding: 12px; margin: 10px 0;
+            border: 2px solid #ecf0f1; border-radius: 10px;
+            font-size: 1rem;
+        }
+        button {
+            width: 100%; padding: 12px;
+            background: #1a4d8c; color: white;
+            border: none; border-radius: 10px;
+            font-size: 1rem; font-weight: bold;
+            cursor: pointer; margin-top: 10px;
+        }
+        button:hover { background: #0e3a6b; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1a4d8c, #0e3a6b);
+            color: white; padding: 25px; border-radius: 15px;
+            text-align: center;
+        }
+        .stat-number { font-size: 2rem; font-weight: bold; }
+        .doc-list { max-height: 500px; overflow-y: auto; }
+        .doc-item {
+            display: flex; justify-content: space-between;
+            align-items: center; padding: 15px;
+            border-bottom: 1px solid #ecf0f1;
+            flex-wrap: wrap;
+        }
+        .doc-actions button { width: auto; margin: 5px; padding: 8px 12px; }
+        .hidden { display: none; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+        .upload-area {
+            border: 2px dashed #1a4d8c; padding: 30px;
+            text-align: center; border-radius: 15px;
+            margin: 20px 0; cursor: pointer;
+        }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px;
+            background: #27ae60; color: white;
+            padding: 15px 25px; border-radius: 8px;
+            z-index: 2000; animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginBox" class="login-card">
+            <h1><i class="fas fa-shield-alt"></i> Admin Login</h1>
+            <input type="password" id="adminPass" placeholder="Enter Admin Password">
+            <button onclick="adminLogin()">Login</button>
+            <p id="loginError" style="color: red; margin-top: 10px;"></p>
+        </div>
+
+        <div id="dashboard" class="dashboard-card hidden">
+            <h1><i class="fas fa-chart-line"></i> Admin Dashboard - Jamuna LTD</h1>
+            
+            <div class="stats-grid">
+                <div class="stat-card"><i class="fas fa-file-alt"></i><div class="stat-number" id="totalDocs">0</div><div>Documents</div></div>
+            </div>
+
+            <h2><i class="fas fa-upload"></i> Upload Document</h2>
+            <input type="text" id="docTitle" placeholder="Document Title">
+            <input type="date" id="issueDate">
+            <select id="docCategory">
+                <option>Invoice</option><option>Certificate</option><option>Report</option><option>Legal</option>
+            </select>
+            <textarea id="docDesc" rows="3" placeholder="Additional notes"></textarea>
+            <div class="upload-area" onclick="document.getElementById('docFile').click()">
+                <i class="fas fa-cloud-upload-alt"></i> Click to upload document (PDF/Image)
+            </div>
+            <input type="file" id="docFile" accept=".pdf,.jpg,.png" style="display:none">
+            <button id="uploadBtn"><i class="fas fa-qrcode"></i> Upload & Generate QR</button>
+
+            <h2 style="margin-top: 30px;"><i class="fas fa-list"></i> Document Manager</h2>
+            <div class="doc-list" id="documentsContainer"></div>
+            
+            <button onclick="logoutAdmin()" class="btn-danger" style="margin-top: 20px;">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        // YOUR GOOGLE APPS SCRIPT URL - PASTED BELOW
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyN64RQoFe3CDbZN-OFGprlfjSIeAWgGz5o7Y2_SXPp9QtQGCokD7cZysU7PdEckAP_6g/exec';
+        
+        async function loadDocuments() {
+            return JSON.parse(localStorage.getItem('jamuna_docs_list') || '[]');
+        }
+        
+        async function saveDocumentToCloud(doc) {
+            const params = new URLSearchParams({
+                action: 'save',
+                docId: doc.id,
+                title: doc.title,
+                issueDate: doc.issueDate,
+                category: doc.category,
+                description: doc.description,
+                fileData: doc.fileData
+            });
+            
+            const response = await fetch(`${API_URL}?${params.toString()}`);
+            return await response.json();
+        }
+        
+        async function updateStats() {
+            const docs = await loadDocuments();
+            document.getElementById('totalDocs').innerText = docs.length;
+        }
+        
+        function generateDocId() { return 'JAM-' + Date.now() + '-' + Math.floor(Math.random() * 10000); }
+        
+        async function renderAdminList() {
+            const container = document.getElementById('documentsContainer');
+            const docs = await loadDocuments();
+            if (docs.length === 0) { container.innerHTML = '<p>No documents yet.</p>'; return; }
+            container.innerHTML = docs.map(doc => `
+                <div class="doc-item">
+                    <div><strong>${escapeHtml(doc.title)}</strong><br><small>ID: ${doc.id} | ${doc.issueDate}</small></div>
+                    <div class="doc-actions">
+                        <button onclick="copyLink('${doc.id}')">Copy Link</button>
+                        <button class="btn-danger" onclick="deleteDoc('${doc.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        window.copyLink = function(id) {
+            const link = `${window.location.origin}/verify-jamunabd/index.html?doc=${id}`;
+            navigator.clipboard.writeText(link);
+            showToast('Verification link copied!');
+        };
+        
+        window.deleteDoc = async function(id) {
+            if (confirm('Delete permanently?')) {
+                let docs = await loadDocuments();
+                docs = docs.filter(d => d.id !== id);
+                localStorage.setItem('jamuna_docs_list', JSON.stringify(docs));
+                renderAdminList();
+                updateStats();
+                showToast('Document deleted');
+            }
+        };
+        
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function setupAdmin() {
+            document.getElementById('uploadBtn').onclick = async () => {
+                const title = document.getElementById('docTitle').value;
+                const issueDate = document.getElementById('issueDate').value;
+                const category = document.getElementById('docCategory').value;
+                const description = document.getElementById('docDesc').value;
+                const file = document.getElementById('docFile').files[0];
+                if (!title || !issueDate || !file) { alert('Fill all fields'); return; }
+                
+                showToast('Uploading to cloud...');
+                
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const docId = generateDocId();
+                    const newDoc = { 
+                        id: docId, 
+                        title, 
+                        issueDate, 
+                        category, 
+                        description, 
+                        fileData: e.target.result,
+                        uploadedAt: new Date().toISOString()
+                    };
+                    
+                    const docs = await loadDocuments();
+                    docs.push(newDoc);
+                    localStorage.setItem('jamuna_docs_list', JSON.stringify(docs));
+                    
+                    await saveDocumentToCloud(newDoc);
+                    
+                    const tempDiv = document.createElement('div');
+                    const verifyUrl = `${window.location.origin}/verify-jamunabd/index.html?doc=${docId}`;
+                    new QRCode(tempDiv, { text: verifyUrl, width: 150, height: 150 });
+                    setTimeout(() => {
+                        const qrImg = tempDiv.querySelector('img');
+                        const html = `<!DOCTYPE html><html><head><title>${title}</title><style>body{text-align:center;padding:40px;font-family:Arial}</style></head><body><h1>Jamuna LTD</h1><p>Paitka, Dhanbari, Tangail</p><h2>${title}</h2><p><strong>Document ID:</strong> ${docId}</p><p><strong>Issue Date:</strong> ${issueDate}</p><p><strong>Category:</strong> ${category}</p>${qrImg ? `<div><img src="${qrImg.src}"></div>` : ''}<p><strong>Scan QR or visit:</strong><br>${verifyUrl}</p><hr><small>Official verified document from Jamuna LTD</small></body></html>`;
+                        const blob = new Blob([html], {type: 'text/html'});
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_JAMUNA_VERIFIED.html`;
+                        a.click();
+                        showToast(`Uploaded! ID: ${docId}`);
+                        document.getElementById('docTitle').value = '';
+                        document.getElementById('docFile').value = '';
+                        renderAdminList();
+                        updateStats();
+                    }, 100);
+                };
+                reader.readAsDataURL(file);
+            };
+        }
+        
+        window.adminLogin = function() {
+            if (document.getElementById('adminPass').value === 'Jamuna2025') {
+                document.getElementById('loginBox').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                renderAdminList();
+                setupAdmin();
+                updateStats();
+            } else {
+                document.getElementById('loginError').innerText = 'Wrong password';
+            }
+        };
+        
+        window.logoutAdmin = function() {
+            document.getElementById('loginBox').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('adminPass').value = '';
+        };
+        
+        function escapeHtml(str) { return str.replace(/[&<>]/g, function(m) { return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'); }); }
+    </script>
+</body>
+</html>
