@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jamuna LTD | Admin Panel</title>
+    <title>Jamuna LTD | Admin Panel - SIMPLE VERSION</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -43,7 +43,6 @@
             border-radius: 12px;
             font-size: 1rem;
         }
-        input:focus { outline: none; border-color: #1a4d8c; }
         button {
             width: 100%;
             padding: 15px;
@@ -54,10 +53,9 @@
             font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 10px;
         }
-        button:hover { background: #0e3a6b; transform: translateY(-2px); }
-        .error-msg { color: #e74c3c; margin-top: 15px; font-size: 0.9rem; }
+        button:hover { background: #0e3a6b; }
+        .error-msg { color: #e74c3c; margin-top: 15px; }
         .hidden { display: none; }
         .stats-grid {
             display: grid;
@@ -73,7 +71,6 @@
             text-align: center;
         }
         .stat-number { font-size: 2rem; font-weight: bold; }
-        .stat-card i { font-size: 2rem; margin-bottom: 10px; }
         .upload-area {
             border: 2px dashed #1a4d8c;
             background: #f8f9fa;
@@ -82,9 +79,7 @@
             border-radius: 15px;
             margin: 20px 0;
             cursor: pointer;
-            transition: all 0.3s;
         }
-        .upload-area:hover { background: #e8f4fd; border-color: #0e3a6b; }
         .doc-list { max-height: 500px; overflow-y: auto; }
         .doc-item {
             display: flex;
@@ -93,18 +88,14 @@
             padding: 15px;
             border-bottom: 1px solid #ecf0f1;
             flex-wrap: wrap;
-            gap: 10px;
         }
-        .doc-item:hover { background: #f8f9fa; }
         .doc-actions button {
             width: auto;
             margin: 5px;
             padding: 8px 15px;
         }
         .btn-danger { background: #e74c3c; }
-        .btn-danger:hover { background: #c0392b; }
         .btn-sm { background: #7f8c8d; }
-        .btn-sm:hover { background: #5a6268; }
         .toast {
             position: fixed;
             bottom: 20px;
@@ -114,20 +105,14 @@
             padding: 15px 25px;
             border-radius: 10px;
             z-index: 2000;
-            animation: slideIn 0.3s ease;
         }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        h2, h3 { color: #1a4d8c; margin: 20px 0 15px 0; }
+        h2 { color: #1a4d8c; margin: 20px 0 15px 0; }
         input, select, textarea {
             width: 100%;
             padding: 12px;
             margin: 10px 0;
             border: 2px solid #ecf0f1;
             border-radius: 10px;
-            font-size: 1rem;
         }
     </style>
 </head>
@@ -139,20 +124,19 @@
                 <i class="fas fa-shield-alt"></i>
             </div>
             <h1>Admin Login</h1>
-            <p style="color: #7f8c8d; margin-bottom: 20px;">Enter your password to access the dashboard</p>
-            <input type="password" id="adminPassword" placeholder="Enter Admin Password">
-            <button onclick="attemptLogin()">Login</button>
-            <div id="loginErrorMsg" class="error-msg"></div>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">Enter password to access dashboard</p>
+            <input type="password" id="passwordInput" placeholder="Enter Admin Password">
+            <button id="loginButton">Login</button>
+            <div id="errorMsg" class="error-msg"></div>
         </div>
 
-        <!-- DASHBOARD SECTION (HIDDEN UNTIL LOGIN) -->
+        <!-- DASHBOARD -->
         <div id="dashboardSection" class="dashboard-card hidden">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h1><i class="fas fa-chart-line"></i> Admin Dashboard</h1>
-                <button onclick="logout()" class="btn-danger" style="width: auto; padding: 10px 20px;">Logout</button>
+                <button id="logoutButton" class="btn-danger" style="width: auto; padding: 10px 20px;">Logout</button>
             </div>
             
-            <!-- Stats -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <i class="fas fa-file-alt"></i>
@@ -161,101 +145,95 @@
                 </div>
             </div>
 
-            <!-- Upload Form -->
-            <h2><i class="fas fa-upload"></i> Upload New Document</h2>
+            <h2><i class="fas fa-upload"></i> Upload Document</h2>
             <input type="text" id="docTitle" placeholder="Document Title *">
             <input type="date" id="issueDate">
             <select id="docCategory">
-                <option value="Invoice">Invoice</option>
-                <option value="Certificate">Certificate</option>
-                <option value="Report">Report</option>
-                <option value="Legal">Legal Document</option>
-                <option value="Other">Other</option>
+                <option>Invoice</option><option>Certificate</option><option>Report</option><option>Legal</option>
             </select>
-            <textarea id="docDesc" rows="3" placeholder="Additional notes (optional)"></textarea>
-            <div class="upload-area" onclick="document.getElementById('docFile').click()">
+            <textarea id="docDesc" rows="3" placeholder="Additional notes"></textarea>
+            <div class="upload-area" id="uploadArea">
                 <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #1a4d8c;"></i>
-                <p style="margin-top: 10px;">Click to upload document (PDF, JPG, PNG)</p>
+                <p>Click to upload document (PDF, JPG, PNG)</p>
             </div>
             <input type="file" id="docFile" accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
-            <button id="uploadButton"><i class="fas fa-qrcode"></i> Upload & Generate QR</button>
+            <button id="uploadBtn">Upload & Generate QR</button>
 
-            <!-- Document List -->
-            <h2><i class="fas fa-list"></i> Document Manager</h2>
+            <h2>Document Manager</h2>
             <div id="documentsList" class="doc-list">
-                <p>Loading documents...</p>
+                <p>Loading...</p>
             </div>
         </div>
     </div>
 
     <script>
-        // ============================================
-        // SUPABASE CONFIGURATION
-        // ============================================
+        // Supabase setup
         const SUPABASE_URL = 'https://bxvpqjyxffwurosscbsw.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4dnBxanl4ZmZ3dXJvc3NjYnN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MDY3OTYsImV4cCI6MjA5NTE4Mjc5Nn0.riUBTCg2s_dL1ugshVRHwraFFzGjpJ9xBczAefcp9u8';
-        
         const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        // ============================================
-        // LOGIN FUNCTION
-        // ============================================
-        function attemptLogin() {
-            const password = document.getElementById('adminPassword').value;
-            const errorDiv = document.getElementById('loginErrorMsg');
+        // Get elements
+        const loginSection = document.getElementById('loginSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const passwordInput = document.getElementById('passwordInput');
+        const loginBtn = document.getElementById('loginButton');
+        const errorMsg = document.getElementById('errorMsg');
+        const logoutBtn = document.getElementById('logoutButton');
+        
+        // Login function
+        function doLogin() {
+            const password = passwordInput.value;
+            console.log('Login attempted with password:', password);
             
             if (password === 'Jamuna2025') {
-                // Successful login - show dashboard
-                document.getElementById('loginSection').classList.add('hidden');
-                document.getElementById('dashboardSection').classList.remove('hidden');
-                errorDiv.innerHTML = '';
-                
-                // Load data
-                loadAllDocuments();
+                console.log('Login successful');
+                loginSection.classList.add('hidden');
+                dashboardSection.classList.remove('hidden');
+                errorMsg.innerHTML = '';
+                loadDocuments();
                 updateStats();
                 setupUpload();
             } else {
-                errorDiv.innerHTML = '❌ Incorrect password. Please try again.';
+                console.log('Login failed');
+                errorMsg.innerHTML = '❌ Incorrect password. Try: Jamuna2025';
             }
         }
         
-        function logout() {
-            document.getElementById('loginSection').classList.remove('hidden');
-            document.getElementById('dashboardSection').classList.add('hidden');
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('loginErrorMsg').innerHTML = '';
+        // Logout function
+        function doLogout() {
+            loginSection.classList.remove('hidden');
+            dashboardSection.classList.add('hidden');
+            passwordInput.value = '';
+            errorMsg.innerHTML = '';
         }
         
-        // ============================================
-        // DATABASE FUNCTIONS
-        // ============================================
-        async function loadAllDocuments() {
-            const { data, error } = await supabase
-                .from('documents')
-                .select('*')
-                .order('uploaded_at', { ascending: false });
-            
+        // Connect buttons
+        loginBtn.onclick = doLogin;
+        logoutBtn.onclick = doLogout;
+        
+        // Also allow Enter key
+        passwordInput.onkeypress = function(e) {
+            if (e.key === 'Enter') {
+                doLogin();
+            }
+        };
+        
+        // Database functions
+        async function loadDocuments() {
+            const { data, error } = await supabase.from('documents').select('*').order('uploaded_at', { ascending: false });
             const container = document.getElementById('documentsList');
             
-            if (error) {
-                container.innerHTML = '<p>Error loading documents: ' + error.message + '</p>';
-                return;
-            }
-            
             if (!data || data.length === 0) {
-                container.innerHTML = '<p>No documents uploaded yet. Upload your first document above.</p>';
+                container.innerHTML = '<p>No documents yet.</p>';
                 return;
             }
             
             container.innerHTML = data.map(doc => `
                 <div class="doc-item">
-                    <div style="flex: 1;">
-                        <strong><i class="fas fa-file-pdf"></i> ${escapeHtml(doc.title)}</strong><br>
-                        <small style="color: #7f8c8d;">ID: ${escapeHtml(doc.doc_id)} | Issued: ${escapeHtml(doc.issue_date)} | Verified: ${doc.verification_count || 0} times</small>
-                    </div>
+                    <div><strong>${escapeHtml(doc.title)}</strong><br><small>ID: ${doc.doc_id} | ${doc.issue_date}</small></div>
                     <div class="doc-actions">
-                        <button onclick="copyVerificationLink('${doc.doc_id}')" class="btn-sm"><i class="fas fa-copy"></i> Link</button>
-                        <button onclick="deleteDocument('${doc.doc_id}')" class="btn-danger"><i class="fas fa-trash"></i> Delete</button>
+                        <button onclick="copyLink('${doc.doc_id}')" class="btn-sm">Copy Link</button>
+                        <button onclick="deleteDoc('${doc.doc_id}')" class="btn-danger">Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -266,72 +244,56 @@
             document.getElementById('totalDocs').innerText = data ? data.length : 0;
         }
         
-        function generateDocumentId() {
-            return 'JAM-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-        }
-        
-        window.copyVerificationLink = function(docId) {
-            const link = `https://limafiroz99x.github.io/verify-jamuna/index.html?doc=${docId}`;
+        window.copyLink = function(id) {
+            const link = `https://limafiroz99x.github.io/verify-jamuna/index.html?doc=${id}`;
             navigator.clipboard.writeText(link);
-            showToast('Verification link copied to clipboard!');
+            showToast('Link copied!');
         };
         
-        window.deleteDocument = async function(docId) {
-            if (confirm('⚠️ Delete this document permanently? This action cannot be undone.')) {
-                const { error } = await supabase.from('documents').delete().eq('doc_id', docId);
-                if (error) {
-                    showToast('Delete failed: ' + error.message);
-                } else {
-                    showToast('Document deleted successfully');
-                    loadAllDocuments();
-                    updateStats();
-                }
+        window.deleteDoc = async function(id) {
+            if (confirm('Delete?')) {
+                await supabase.from('documents').delete().eq('doc_id', id);
+                loadDocuments();
+                updateStats();
+                showToast('Deleted');
             }
         };
         
-        function showToast(message) {
+        function showToast(msg) {
             const toast = document.createElement('div');
             toast.className = 'toast';
-            toast.innerHTML = '<i class="fas fa-check-circle"></i> ' + message;
+            toast.innerHTML = msg;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
         
-        // ============================================
-        // UPLOAD FUNCTION
-        // ============================================
+        function generateDocId() {
+            return 'JAM-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+        }
+        
         function setupUpload() {
-            const uploadBtn = document.getElementById('uploadButton');
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('docFile');
             
-            // Remove existing listeners to avoid duplicates
-            const newBtn = uploadBtn.cloneNode(true);
-            uploadBtn.parentNode.replaceChild(newBtn, uploadBtn);
+            uploadArea.onclick = () => fileInput.click();
             
-            newBtn.addEventListener('click', () => {
+            document.getElementById('uploadBtn').onclick = () => {
                 const title = document.getElementById('docTitle').value;
                 const issueDate = document.getElementById('issueDate').value;
                 const category = document.getElementById('docCategory').value;
                 const description = document.getElementById('docDesc').value;
-                const file = document.getElementById('docFile').files[0];
+                const file = fileInput.files[0];
                 
-                if (!title) {
-                    alert('Please enter a document title');
-                    return;
-                }
-                if (!issueDate) {
-                    alert('Please select an issue date');
-                    return;
-                }
-                if (!file) {
-                    alert('Please select a file to upload');
+                if (!title || !issueDate || !file) {
+                    alert('Fill all fields');
                     return;
                 }
                 
-                showToast('Uploading to cloud...');
+                showToast('Uploading...');
                 
                 const reader = new FileReader();
                 reader.onload = async function(e) {
-                    const docId = generateDocumentId();
+                    const docId = generateDocId();
                     
                     const { error } = await supabase.from('documents').insert([{
                         doc_id: docId,
@@ -347,84 +309,42 @@
                         return;
                     }
                     
-                    // Generate QR Code Document
+                    // Generate QR
                     const tempDiv = document.createElement('div');
                     const verifyUrl = `https://limafiroz99x.github.io/verify-jamuna/index.html?doc=${docId}`;
                     new QRCode(tempDiv, { text: verifyUrl, width: 150, height: 150 });
                     
                     setTimeout(() => {
                         const qrImg = tempDiv.querySelector('img');
-                        const qrHtml = `
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                                <meta charset="UTF-8">
-                                <title>${title} - Jamuna LTD Verified Document</title>
-                                <style>
-                                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                                    .header { border-bottom: 3px solid #1a4d8c; margin-bottom: 30px; }
-                                    .qr-code { margin: 30px auto; }
-                                    .verified { color: #27ae60; font-weight: bold; }
-                                    .details { text-align: left; max-width: 500px; margin: 20px auto; }
-                                </style>
-                            </head>
-                            <body>
-                                <div class="header">
-                                    <h1>Jamuna LTD</h1>
-                                    <p>Paitka, Dhanbari, Tangail</p>
-                                    <h2 class="verified">✅ OFFICIALLY VERIFIED DOCUMENT</h2>
-                                </div>
-                                <h2>${escapeHtml(title)}</h2>
-                                <div class="details">
-                                    <p><strong>Document ID:</strong> ${docId}</p>
-                                    <p><strong>Issue Date:</strong> ${issueDate}</p>
-                                    <p><strong>Category:</strong> ${category}</p>
-                                    ${description ? `<p><strong>Notes:</strong> ${escapeHtml(description)}</p>` : ''}
-                                    <p><strong>Issued By:</strong> Jamuna LTD, Tangail</p>
-                                </div>
-                                <div class="qr-code">
-                                    ${qrImg ? `<img src="${qrImg.src}" alt="QR Code">` : '<p>QR Code</p>'}
-                                </div>
-                                <p><strong>Scan QR code or visit:</strong><br>${verifyUrl}</p>
-                                <hr>
-                                <small>This document can be verified at Jamuna LTD official portal</small>
-                            </body>
-                            </html>
-                        `;
+                        const html = `<!DOCTYPE html><html><head><title>${title}</title><style>body{text-align:center;padding:40px;font-family:Arial}</style></head><body><h1>Jamuna LTD</h1><p>Paitka, Dhanbari, Tangail</p><h2>${title}</h2><p><strong>ID:</strong> ${docId}</p><p><strong>Date:</strong> ${issueDate}</p>${qrImg ? `<img src="${qrImg.src}">` : ''}<p><strong>Verify:</strong><br>${verifyUrl}</p></body></html>`;
+                        const blob = new Blob([html], {type: 'text/html'});
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_VERIFIED.html`;
+                        a.click();
+                        showToast('Uploaded! ID: ' + docId);
                         
-                        const blob = new Blob([qrHtml], { type: 'text/html' });
-                        const downloadLink = document.createElement('a');
-                        downloadLink.href = URL.createObjectURL(blob);
-                        downloadLink.download = `${title.replace(/[^a-z0-9]/gi, '_')}_JAMUNA_VERIFIED.html`;
-                        downloadLink.click();
-                        URL.revokeObjectURL(blob);
-                        
-                        showToast(`✅ Upload successful! Document ID: ${docId}`);
-                        
-                        // Clear form
                         document.getElementById('docTitle').value = '';
                         document.getElementById('issueDate').value = '';
                         document.getElementById('docDesc').value = '';
-                        document.getElementById('docFile').value = '';
+                        fileInput.value = '';
                         
-                        // Refresh lists
-                        loadAllDocuments();
+                        loadDocuments();
                         updateStats();
                     }, 100);
                 };
                 reader.readAsDataURL(file);
-            });
+            };
         }
         
         function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
+                return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;');
             });
         }
+        
+        console.log('Admin page loaded. Ready to login.');
     </script>
 </body>
 </html>
